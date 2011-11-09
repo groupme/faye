@@ -80,7 +80,6 @@ module Faye
         'supportedConnectionTypes' => [@transport.connection_type]
         
       }) do |response|
-        
         if response['successful']
           @state     = CONNECTED
           @client_id = response['clientId']
@@ -90,11 +89,12 @@ module Faye
           
           subscribe(@channels.keys, true)
           block.call if block_given?
-          
         else
-          info('Handshake unsuccessful')
+          error = "Handshake unsuccessful"
+          info(error)
           EventMachine.add_timer(@advice['interval'] / 1000.0) { handshake(&block) }
           @state = UNCONNECTED
+          set_deferred_status(:failed, error)
         end
       end
     end

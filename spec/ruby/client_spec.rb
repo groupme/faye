@@ -150,6 +150,15 @@ describe Faye::Client do
         @client.handshake
         @client.state.should == :UNCONNECTED
       end
+
+      it "marks client as failed" do
+        EM.stub(:add_timer)
+        error = nil
+        @client.errback {|message| error = message }
+        @client.handshake
+        @client.state.should == :UNCONNECTED
+        error.should == "Handshake unsuccessful"
+      end
     end
     
     describe "with existing subscriptions after a server restart" do
