@@ -6,7 +6,7 @@
 
 , "version"         : "0.8.11.gm"
 , "engines"         : {"node": ">=0.1.96"}
-, "main"            : "./node/faye-node"
+, "main"            : "./build/node/faye-node"
 , "dependencies"    : {"cookiejar": "", "faye-websocket": ">=0.4.0"}
 , "devDependencies" : {"jsclass": ""}
 
@@ -20,5 +20,10 @@
 , "repository"    : { "type"  : "git"
                     , "url"   : "git://github.com/groupme/faye.git"
                     }
+
+, "scripts" : {
+	"preinstall" : "bundle install",
+	"install": "bundle exec jake"
 }
 
+}
