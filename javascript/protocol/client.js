@@ -25,7 +25,6 @@ Faye.Client = Faye.Class({
     this._headers   = {};
     this._disabled  = [];
     this.retry      = this._options.retry || this.DEFAULT_RETRY;
-
     this._state     = this.UNCONNECTED;
     this._channels  = new Faye.Channel.Set();
     this._messageId = 0;
@@ -94,6 +93,7 @@ Faye.Client = Faye.Class({
 
     this.info('Initiating handshake with ?', this.endpoint);
     this._selectTransport(Faye.MANDATORY_CONNECTION_TYPES);
+
 
     this._send({
       channel:      Faye.Channel.HANDSHAKE,
@@ -169,17 +169,25 @@ Faye.Client = Faye.Class({
     this._state = this.DISCONNECTED;
 
     this.info('Disconnecting ?', this._clientId);
+    var promise = new Faye.Promise();
 
     this._send({
       channel:    Faye.Channel.DISCONNECT,
       clientId:   this._clientId
 
     }, function(response) {
-      if (response.successful) this._transport.close();
+      if (response.successful) {
+        this._transport.close();
+        Faye.Promise.resolve(promise, response);
+      } else {
+        Faye.Promise.reject(promise, response);
+      }
     }, this);
 
     this.info('Clearing channel listeners for ?', this._clientId);
     this._channels = new Faye.Channel.Set();
+
+    return promise;
   },
 
   // Request                              Response
