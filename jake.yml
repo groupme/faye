@@ -17,6 +17,7 @@ packages:
     - faye
     - util/class
     - util/namespace
+    - util/promise
     - error
     - mixins/deferrable
     - mixins/publisher
