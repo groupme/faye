@@ -1,44 +1,67 @@
-if (!this.Faye) Faye = {};
+'use strict';
 
-Faye.extend = function(dest, source, overwrite) {
-  if (!source) return dest;
-  for (var key in source) {
-    if (!source.hasOwnProperty(key)) continue;
-    if (dest.hasOwnProperty(key) && overwrite === false) continue;
-    if (dest[key] !== source[key])
-      dest[key] = source[key];
-  }
-  return dest;
-};
-
-Faye.extend(Faye, {
+var Faye = {
   VERSION:          '<%= Faye::VERSION %>',
-  
+
   BAYEUX_VERSION:   '<%= Faye::BAYEUX_VERSION %>',
-  ID_LENGTH:        <%= Faye::ID_LENGTH %>,
+  ID_LENGTH:        <%= Faye::Engine::ID_LENGTH %>,
   JSONP_CALLBACK:   '<%= Faye::JSONP_CALLBACK %>',
-  CONNECTION_TYPES: ['long-polling', 'cross-origin-long-polling', 'callback-polling', 'websocket', 'in-process'],
-  
+  CONNECTION_TYPES: ['long-polling', 'cross-origin-long-polling', 'callback-polling', 'websocket', 'eventsource', 'in-process'],
+
   MANDATORY_CONNECTION_TYPES: ['long-polling', 'callback-polling', 'in-process'],
-  
-  ENV: (function() { return this })(),
-  
+
+  ENV: (typeof global === 'undefined') ? window : global,
+
+  extend: function(dest, source, overwrite) {
+    if (!source) return dest;
+    for (var key in source) {
+      if (!source.hasOwnProperty(key)) continue;
+      if (dest.hasOwnProperty(key) && overwrite === false) continue;
+      if (dest[key] !== source[key])
+        dest[key] = source[key];
+    }
+    return dest;
+  },
+
   random: function(bitlength) {
     bitlength = bitlength || this.ID_LENGTH;
     if (bitlength > 32) {
       var parts  = Math.ceil(bitlength / 32),
           string = '';
       while (parts--) string += this.random(32);
-      return string;
+      var chars = string.split(''), result = '';
+      while (chars.length > 0) result += chars.pop();
+      return result;
     }
     var limit   = Math.pow(2, bitlength) - 1,
         maxSize = limit.toString(36).length,
         string  = Math.floor(Math.random() * limit).toString(36);
-    
+
     while (string.length < maxSize) string = '0' + string;
     return string;
   },
-  
+
+  clientIdFromMessages: function(messages) {
+    var first = [].concat(messages)[0];
+    return first && first.clientId;
+  },
+
+  copyObject: function(object) {
+    var clone, i, key;
+    if (object instanceof Array) {
+      clone = [];
+      i = object.length;
+      while (i--) clone[i] = Faye.copyObject(object[i]);
+      return clone;
+    } else if (typeof object === 'object') {
+      clone = (object === null) ? null : {};
+      for (key in object) clone[key] = Faye.copyObject(object[key]);
+      return clone;
+    } else {
+      return object;
+    }
+  },
+
   commonElement: function(lista, listb) {
     for (var i = 0, n = lista.length; i < n; i++) {
       if (this.indexOf(listb, lista[i]) !== -1)
@@ -46,73 +69,43 @@ Faye.extend(Faye, {
     }
     return null;
   },
-  
+
   indexOf: function(list, needle) {
+    if (list.indexOf) return list.indexOf(needle);
+
     for (var i = 0, n = list.length; i < n; i++) {
       if (list[i] === needle) return i;
     }
     return -1;
   },
-  
-  each: function(object, callback, scope) {
+
+  map: function(object, callback, context) {
+    if (object.map) return object.map(callback, context);
+    var result = [];
+
     if (object instanceof Array) {
       for (var i = 0, n = object.length; i < n; i++) {
-        if (object[i] !== undefined)
-          callback.call(scope || null, object[i], i);
+        result.push(callback.call(context || null, object[i], i));
       }
     } else {
       for (var key in object) {
-        if (object.hasOwnProperty(key))
-          callback.call(scope || null, key, object[key]);
+        if (!object.hasOwnProperty(key)) continue;
+        result.push(callback.call(context || null, key, object[key]));
       }
     }
-  },
-  
-  map: function(object, callback, scope) {
-    if (object.map) return object.map(callback, scope);
-    var result = [];
-    this.each(object, function() {
-      result.push(callback.apply(scope || null, arguments));
-    });
     return result;
   },
-  
-  filter: function(array, callback, scope) {
+
+  filter: function(array, callback, context) {
     var result = [];
-    this.each(array, function() {
-      if (callback.apply(scope, arguments))
-        result.push(arguments[0]);
-    });
-    return result;
-  },
-  
-  size: function(object) {
-    var size = 0;
-    this.each(object, function() { size += 1 });
-    return size;
-  },
-  
-  enumEqual: function(actual, expected) {
-    if (expected instanceof Array) {
-      if (!(actual instanceof Array)) return false;
-      var i = actual.length;
-      if (i !== expected.length) return false;
-      while (i--) {
-        if (actual[i] !== expected[i]) return false;
-      }
-      return true;
-    } else {
-      if (!(actual instanceof Object)) return false;
-      if (this.size(expected) !== this.size(actual)) return false;
-      var result = true;
-      this.each(actual, function(key, value) {
-        result = result && (expected[key] === value);
-      });
-      return result;
+    for (var i = 0, n = array.length; i < n; i++) {
+      if (callback.call(context || null, array[i], i))
+        result.push(array[i]);
     }
+    return result;
   },
-  
-  asyncEach: function(list, iterator, callback, scope) {
+
+  asyncEach: function(list, iterator, callback, context) {
     var n       = list.length,
         i       = -1,
         calls   = 0,
@@ -121,7 +114,7 @@ Faye.extend(Faye, {
     var iterate = function() {
       calls -= 1;
       i += 1;
-      if (i === n) return callback && callback.call(scope);
+      if (i === n) return callback && callback.call(context);
       iterator(list[i], resume);
     };
 
@@ -138,7 +131,7 @@ Faye.extend(Faye, {
     };
     resume();
   },
-  
+
   // http://assanka.net/content/tech/2009/09/02/json2-js-vs-prototype/
   toJSON: function(object) {
     if (this.stringify)
@@ -147,10 +140,14 @@ Faye.extend(Faye, {
             ? this[key]
             : value;
       });
-    
+
     return JSON.stringify(object);
   },
-  
+
+  logger: function(message) {
+    if (typeof console !== 'undefined') console.log(message);
+  },
+
   timestamp: function() {
     var date   = new Date(),
         year   = date.getFullYear(),
@@ -159,13 +156,16 @@ Faye.extend(Faye, {
         hour   = date.getHours(),
         minute = date.getMinutes(),
         second = date.getSeconds();
-    
+
     var pad = function(n) {
       return n < 10 ? '0' + n : String(n);
     };
-    
+
     return pad(year) + '-' + pad(month) + '-' + pad(day) + ' ' +
            pad(hour) + ':' + pad(minute) + ':' + pad(second);
   }
-});
+};
+
+if (typeof window !== 'undefined')
+  window.Faye = Faye;
 

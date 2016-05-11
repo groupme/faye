@@ -1,8 +1,8 @@
-JSCLASS_PATH = 'vendor/js.class/build/src'
-require('../' + JSCLASS_PATH + '/loader')
+require('jsclass')
+Faye = require('../build/node/faye-node')
+Faye.logger = function() {}
 
 JS.Packages(function() { with(this) {
-  file('build/faye-node.js').provides('Faye')
   autoload(/.*Spec/, {from: 'spec/javascript'})
 }})
 
@@ -20,6 +20,7 @@ FakeSocket.prototype.read = function() {
   })
   return output
 }
+FakeSocket.prototype.addListener = function() {}
 
 JS.require('Faye', 'JS.Test', 'JS.Range', function() {
   JS.Test.Unit.Assertions.include({
@@ -28,23 +29,25 @@ JS.require('Faye', 'JS.Test', 'JS.Range', function() {
       return function(actual) { testcase.assertEqual(expected, actual) }
     }
   })
-  
+
+  JS.ENV.Engine = {}
   JS.ENV.Server = {}
-  
+
   JS.require( 'FayeSpec',
               'GrammarSpec',
+              'PublisherSpec',
               'ChannelSpec',
               'EngineSpec',
+              'Engine.MemorySpec',
               'ServerSpec',
               'Server.HandshakeSpec',
               'Server.ConnectSpec',
               'Server.DisconnectSpec',
               'Server.SubscribeSpec',
               'Server.UnsubscribeSpec',
+              'Server.PublishSpec',
               'Server.ExtensionsSpec',
               'Server.IntegrationSpec',
-              'WebSocket.Draft75ParserSpec',
-              'WebSocket.Protocol8ParserSpec',
               'NodeAdapterSpec',
               'ClientSpec',
               'TransportSpec',

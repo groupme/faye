@@ -2,7 +2,7 @@
 
 * http://faye.jcoglan.com
 * http://groups.google.com/group/faye-users
-* http://github.com/jcoglan/faye
+* http://github.com/faye/faye
 
 Faye is a set of tools for dirt-simple publish-subscribe messaging between web
 clients. It ships with easy-to-use message routing servers for Node.js and Rack
@@ -26,23 +26,18 @@ package. There are also a few submodules we use for testing. The following
 should get you up and running:
 
   # Download the code from Git
-  git clone git://github.com/jcoglan/faye.git
+  git clone git://github.com/faye/faye.git
   cd faye
   git submodule update --init --recursive
   
   # Install dependencies
-  gem install bundler
   bundle install
-  npm install redis
+  npm install
   
-  # Build test tools and Faye itself
-  cd vendor/js.class
-  jake
-  cd ../../
-  jake
+  # Build Faye
+  bundle exec jake
   
   # Run tests
-  redis-server spec/redis.conf
   bundle exec rspec -c spec/
   node spec/node.js
   
@@ -56,18 +51,9 @@ should get you up and running:
 
 == To-do
 
-Notification API:
-
-* Notify listeners of network drop-out (may be transport dependent)
 * Provide reflection API for internal stats on channels, subscriptions, message queues
 * (Maybe) build a monitoring GUI into the server
-
-Sugar:
-
 * Add sugar for authentication extensions for protected subscribe + publish
-
-Missing protocol features:
-
 * Provide support for user-defined <tt>/service/*</tt> channels
 * Let local server-side clients listen to <tt>/meta/*</tt> channels
 
@@ -76,7 +62,7 @@ Missing protocol features:
 
 (The MIT License)
 
-Copyright (c) 2009-2011 James Coglan and contributors
+Copyright (c) 2009-2013 James Coglan and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the 'Software'), to deal in

@@ -1,7 +1,5 @@
 require 'rubygems'
-
-dir = File.dirname(__FILE__)
-require File.expand_path(dir + '/../../lib/faye')
+require File.expand_path('../../../lib/faye', __FILE__)
 
 # Faye::Logging.log_level = :debug
 
@@ -15,15 +13,15 @@ EM.run {
   server   = servers[:ruby]
   client_a = Faye::Client.new("http://localhost:#{server[:ports][0]}/#{server[:path]}")
   client_b = Faye::Client.new("http://localhost:#{server[:ports][1]}/#{server[:path]}")
-  
+
   time = nil
-  
+
   sub = client_a.subscribe '/chat/foo' do |message|
     puts Time.now.to_f * 1000 - time
     puts message['text']
     EM.stop
   end
-  
+
   sub.callback do
     client_b.connect do
       time = Time.now.to_f * 1000

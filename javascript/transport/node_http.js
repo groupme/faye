@@ -1,43 +1,80 @@
 Faye.Transport.NodeHttp = Faye.extend(Faye.Class(Faye.Transport, {
   request: function(message, timeout) {
-    var uri      = url.parse(this._endpoint),
+    var uri      = url.parse(this.endpoint),
         secure   = (uri.protocol === 'https:'),
-        port     = (secure ? 443 : 80),
-        client   = http.createClient(uri.port || port, uri.hostname, secure),
-        content  = new Buffer(JSON.stringify(message)),
-        response = null,
+        client   = secure ? https : http,
+        content  = new Buffer(JSON.stringify(message), 'utf8'),
         retry    = this.retry(message, timeout),
         self     = this;
-    
-    client.addListener('error', retry);
-    
-    client.addListener('end', function() {
-      if (!response) retry();
+
+    var cookies = this.cookies.getCookies({domain: uri.hostname, path: uri.pathname}),
+        params  = this._buildParams(uri, content, cookies, secure),
+        request = client.request(params);
+
+    request.addListener('response', function(response) {
+      self._handleResponse(response, retry);
+      self._storeCookies(uri.hostname, response.headers['set-cookie']);
     });
-    
-    var request = client.request('POST', uri.pathname, {
-      'Content-Type':   'application/json',
-      'Host':           uri.hostname,
-      'Content-Length': content.length
+
+    request.addListener('error', function() {
+      retry();
+      self.trigger('down');
     });
-    
-    request.addListener('response', function(stream) {
-      response = stream;
-      Faye.withDataFor(response, function(data) {
-        try {
-          self.receive(JSON.parse(data));
-        } catch (e) {
-          retry();
-        }
-      });
-    });
-    
     request.write(content);
     request.end();
+  },
+
+  _buildParams: function(uri, content, cookies, secure) {
+    return {
+      method:   'POST',
+      host:     uri.hostname,
+      port:     uri.port || (secure ? 443 : 80),
+      path:     uri.pathname,
+      headers:  Faye.extend({
+        'Content-Length': content.length,
+        'Content-Type':   'application/json',
+        'Cookie':         cookies.toValueString(),
+        'Host':           uri.hostname
+      }, this.headers)
+    };
+  },
+
+  _handleResponse: function(response, retry) {
+    var message = null,
+        body    = '',
+        self    = this;
+
+    response.setEncoding('utf8');
+    response.addListener('data', function(chunk) { body += chunk });
+    response.addListener('end', function() {
+      try {
+        message = JSON.parse(body);
+      } catch (e) {}
+
+      if (message) {
+        self.receive(message);
+        self.trigger('up');
+      } else {
+        retry();
+        self.trigger('down');
+      }
+    });
+  },
+
+  _storeCookies: function(hostname, cookies) {
+    if (!cookies) return;
+    var cookie;
+
+    for (var i = 0, n = cookies.length; i < n; i++) {
+      cookie = this.cookies.setCookie(cookies[i]);
+      cookie = cookie[0] || cookie;
+      cookie.domain = cookie.domain || hostname;
+    }
   }
+
 }), {
-  isUsable: function(endpoint, callback, scope) {
-    callback.call(scope, typeof endpoint === 'string');
+  isUsable: function(client, endpoint, callback, context) {
+    callback.call(context, typeof endpoint === 'string');
   }
 });
 

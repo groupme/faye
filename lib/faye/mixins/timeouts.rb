@@ -1,7 +1,7 @@
 module Faye
   module Timeouts
     def add_timeout(name, delay, &block)
-      Faye.ensure_reactor_running!
+      Engine.ensure_reactor_running!
       @timeouts ||= {}
       return if @timeouts.has_key?(name)
       @timeouts[name] = EventMachine.add_timer(delay) do
@@ -9,7 +9,7 @@ module Faye
         block.call
       end
     end
-    
+
     def remove_timeout(name)
       @timeouts ||= {}
       timeout = @timeouts[name]

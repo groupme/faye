@@ -4,9 +4,10 @@ Faye.Transport.CORS = Faye.extend(Faye.Class(Faye.Transport, {
         xhr      = new xhrClass(),
         retry    = this.retry(message, timeout),
         self     = this;
-    
-    xhr.open('POST', this._endpoint, true);
-    
+
+    xhr.open('POST', this.endpoint, true);
+    if (xhr.setRequestHeader) xhr.setRequestHeader('Pragma', 'no-cache');
+
     var cleanUp = function() {
       if (!xhr) return false;
       xhr.onload = xhr.onerror = xhr.ontimeout = xhr.onprogress = null;
@@ -14,41 +15,50 @@ Faye.Transport.CORS = Faye.extend(Faye.Class(Faye.Transport, {
       Faye.ENV.clearTimeout(timer);
       return true;
     };
-    
+
     xhr.onload = function() {
+      var parsedMessage = null;
       try {
-        self.receive(JSON.parse(xhr.responseText));
-      } catch(e) {
+        parsedMessage = JSON.parse(xhr.responseText);
+      } catch (e) {}
+
+      cleanUp();
+
+      if (parsedMessage) {
+        self.receive(parsedMessage);
+        self.trigger('up');
+      } else {
         retry();
-      } finally {
-        cleanUp();
+        self.trigger('down');
       }
     };
-    
+
     var onerror = function() {
       cleanUp();
       retry();
+      self.trigger('down');
     };
     var timer = Faye.ENV.setTimeout(onerror, 1.5 * 1000 * timeout);
     xhr.onerror = onerror;
     xhr.ontimeout = onerror;
-    
+
     xhr.onprogress = function() {};
     xhr.send('message=' + encodeURIComponent(Faye.toJSON(message)));
   }
 }), {
-  isUsable: function(endpoint, callback, scope) {
-    if (Faye.URI.parse(endpoint).isLocal())
-      return callback.call(scope, false);
-    
+  isUsable: function(client, endpoint, callback, context) {
+    if (Faye.URI.parse(endpoint).isSameOrigin())
+      return callback.call(context, false);
+
     if (Faye.ENV.XDomainRequest)
-      return callback.call(scope, true);
-    
+      return callback.call(context, Faye.URI.parse(endpoint).protocol ===
+                                    Faye.URI.parse(Faye.ENV.location).protocol);
+
     if (Faye.ENV.XMLHttpRequest) {
       var xhr = new Faye.ENV.XMLHttpRequest();
-      return callback.call(scope, xhr.withCredentials !== undefined);
+      return callback.call(context, xhr.withCredentials !== undefined);
     }
-    return callback.call(scope, false);
+    return callback.call(context, false);
   }
 });
 
